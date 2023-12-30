@@ -1,0 +1,15 @@
+[package]
+name = "coffee-filter"
+version = "0.1.0"
+edition = "2021"
+
+
+[[example]]
+name = "hello"
+crate-type = ["cdylib"]
+
+[dependencies]
+thiserror = "1.0"
+
+[build-dependencies]
+bindgen = "0.69"
