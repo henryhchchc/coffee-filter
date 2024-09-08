@@ -7,11 +7,21 @@ fn main() {
     println!("cargo:rerun-if-env-changed=JAVA_HOME");
 
     if let Ok(java_home) = env::var("JAVA_HOME") {
+        let platform_include = if cfg!(target_os = "macos") {
+            "darwin"
+        } else if cfg!(target_os = "linux") {
+            "linux"
+        } else if cfg!(target_os = "windows") {
+            "windows"
+        } else {
+            panic!("Unsupported platform")
+        };
         let bindings = bindgen::Builder::default()
             .header("wrapper.h")
             .generate_block(true)
             .prepend_enum_name(false)
             .clang_arg(format!("-I{}/include", java_home))
+            .clang_arg(format!("-I{}/include/{}", java_home, platform_include))
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .generate()
             .expect("Unable to generate bindings");
