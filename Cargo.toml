@@ -8,4 +8,6 @@ edition = "2021"
 thiserror = "1.0"
 
 [build-dependencies]
+anyhow = "1"
 bindgen = "0.70"
+regex = "1"

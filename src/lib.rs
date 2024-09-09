@@ -9,6 +9,7 @@
 //! # Coffee Filter
 //! Rust bindings for the JVM Tool Interface (JVM TI).
 
+mod macros;
 mod sys;
 
 pub mod jni;
