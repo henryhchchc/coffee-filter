@@ -11,4 +11,5 @@
 
 mod sys;
 
+pub mod jni;
 pub mod jvmti;

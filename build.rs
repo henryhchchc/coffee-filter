@@ -22,6 +22,7 @@ fn main() {
             .prepend_enum_name(false)
             .clang_arg(format!("-I{}/include", java_home))
             .clang_arg(format!("-I{}/include/{}", java_home, platform_include))
+            .default_macro_constant_type(bindgen::MacroTypeVariation::Signed)
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .generate()
             .expect("Unable to generate bindings");
