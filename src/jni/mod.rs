@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, result};
+use std::mem::MaybeUninit;
 
 use crate::{
     jvmti,
@@ -6,12 +6,18 @@ use crate::{
     sys::{self},
 };
 
+pub type RawJavaVM = sys::JavaVM;
+
 #[derive(Debug)]
 pub struct JavaVM {
     ptr: *mut sys::JavaVM,
 }
 
 impl JavaVM {
+    pub fn from_raw(ptr: *mut RawJavaVM) -> Self {
+        Self { ptr }
+    }
+
     pub fn get_env(&self, version: jvmti::Version) -> Result<jvmti::Env, GetEnvError> {
         let mut env_ptr: MaybeUninit<*mut sys::jvmtiEnv> = MaybeUninit::uninit();
         let result = jvmti!(
@@ -23,7 +29,7 @@ impl JavaVM {
         match result {
             sys::JNI_OK => {
                 let ptr = unsafe { env_ptr.assume_init() };
-                Ok(jvmti::Env { ptr })
+                Ok(jvmti::Env::from_raw(ptr))
             }
             sys::JNI_EDETACHED => Err(GetEnvError::Detached),
             sys::JNI_EVERSION => Err(GetEnvError::VersionNotSupported),

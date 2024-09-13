@@ -1,0 +1,22 @@
+use std::ffi::{c_char, c_void, CStr};
+
+use coffee_filter::{
+    jni::{JavaVM, RawJavaVM},
+    jvmti::Version,
+};
+
+#[no_mangle]
+unsafe extern "C" fn Agent_OnLoad(
+    vm: *mut RawJavaVM,
+    options: *mut c_char,
+    _reserved: *mut c_void,
+) {
+    let jvm = JavaVM::from_raw(vm);
+    let jvmti = jvm.get_env(Version::CURRENT).expect("Fail to get JVMTI");
+    let options = Some(options).filter(|it| !it.is_null()).map(|it| {
+        CStr::from_ptr(it)
+            .to_str()
+            .expect("The options is not in valid UTF-8")
+    });
+    println!("Hello {:?}, options: {:?}", jvmti, options);
+}

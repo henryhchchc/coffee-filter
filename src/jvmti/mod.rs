@@ -2,7 +2,13 @@ use crate::sys;
 
 #[derive(Debug)]
 pub struct Env {
-    pub(crate) ptr: *mut sys::jvmtiEnv,
+    ptr: *mut sys::jvmtiEnv,
+}
+
+impl Env {
+    pub(crate) fn from_raw(ptr: *mut sys::jvmtiEnv) -> Self {
+        Self { ptr }
+    }
 }
 
 /// The version of the JVM Tool Interface (JVM TI).
