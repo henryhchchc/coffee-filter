@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use crate::{macros::jvmti, sys, utils::jvmti_result};
+use crate::{macros::unsafe_jvmti, sys, utils::jvmti_result};
 
 use super::{Env, Error};
 
@@ -31,7 +31,7 @@ impl Env {
     #[expect(clippy::missing_panics_doc, reason = "Garenteed by JVMTI API")]
     pub fn get_phase(&self) -> Result<Phase, Error> {
         let mut phase: MaybeUninit<sys::jvmtiPhase> = MaybeUninit::uninit();
-        let errno = jvmti!(self.ptr, GetPhase, phase.as_mut_ptr());
+        let errno = unsafe_jvmti!(self.ptr, GetPhase, phase.as_mut_ptr());
         jvmti_result(errno, || {
             let phase_repr = unsafe { phase.assume_init() };
             phase_repr.try_into().unwrap()
@@ -42,7 +42,7 @@ impl Env {
     /// # Errors
     /// See [`Error`] for more information.
     pub fn set_verbose_flag(&self, flag: VeroseFlag, value: bool) -> Result<(), Error> {
-        let errno = jvmti!(self.ptr, SetVerboseFlag, flag as i32, value.into());
+        let errno = unsafe_jvmti!(self.ptr, SetVerboseFlag, flag as i32, value.into());
         jvmti_result(errno, || ())
     }
 }

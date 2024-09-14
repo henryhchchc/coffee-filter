@@ -1,7 +1,7 @@
 use std::mem::MaybeUninit;
 
 use super::{Env, Error};
-use crate::{macros::jvmti, sys, utils::jvmti_result};
+use crate::{macros::unsafe_jvmti, sys, utils::jvmti_result};
 
 /// A chunk of memory allocated by the JVM
 #[derive(Debug)]
@@ -41,7 +41,7 @@ impl<'a> JvmMemoryChunk<'a> {
 
 impl Drop for JvmMemoryChunk<'_> {
     fn drop(&mut self) {
-        let result = jvmti!(self.env.ptr, Deallocate, self.ptr);
+        let result = unsafe_jvmti!(self.env.ptr, Deallocate, self.ptr);
         assert_eq!(
             result,
             sys::JVMTI_ERROR_NONE,
@@ -57,7 +57,7 @@ impl Env {
     pub fn allocate(&self, size: usize) -> Result<JvmMemoryChunk<'_>, Error> {
         let mut bytes: MaybeUninit<*mut u8> = MaybeUninit::uninit();
         let size_in_jvm = size.try_into().map_err(|_| Error::IllegalArgument)?;
-        let errno = jvmti!(self.ptr, Allocate, size_in_jvm, bytes.as_mut_ptr());
+        let errno = unsafe_jvmti!(self.ptr, Allocate, size_in_jvm, bytes.as_mut_ptr());
         jvmti_result(errno, || {
             let ptr = unsafe { bytes.assume_init() };
             JvmMemoryChunk::from_raw_parts(self, ptr, size)

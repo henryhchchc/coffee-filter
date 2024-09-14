@@ -1,14 +1,15 @@
 mod memory;
 mod version;
 
+pub mod capabilities;
 pub mod general;
 pub mod system_properties;
 
-use std::{ffi::c_char, path::Display};
+use std::ffi::{c_char, CStr};
 
 pub use {memory::JvmMemoryChunk, version::Version};
 
-use crate::{macros::jvmti, sys};
+use crate::{macros::unsafe_jvmti, sys};
 
 /// A JVM Tool Interface (JVM TI) environment.
 #[derive(Debug)]
@@ -24,7 +25,7 @@ impl Env {
 
 impl Drop for Env {
     fn drop(&mut self) {
-        let result = jvmti!(self.ptr, DisposeEnvironment);
+        let result = unsafe_jvmti!(self.ptr, DisposeEnvironment);
         assert_eq!(
             result,
             sys::JVMTI_ERROR_NONE,
@@ -40,24 +41,28 @@ pub struct JStr<'j> {
 
 impl std::fmt::Debug for JStr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let cstr = unsafe { std::ffi::CStr::from_ptr(self.ptr) };
-        write!(f, "{cstr:?}")
+        let cstr = unsafe { CStr::from_ptr(self.ptr) };
+        cstr.fmt(f)
     }
 }
 
 impl<'a> JStr<'a> {
-    pub(crate) fn from_raw_parts(env: &'a Env, ptr: *mut c_char) -> Self {
+    pub(crate) const fn from_raw_parts(env: &'a Env, ptr: *mut c_char) -> Self {
         Self { env, ptr }
     }
 
-    pub fn as_ptr(&self) -> *const c_char {
+    pub const fn as_ptr(&self) -> *const c_char {
         self.ptr
+    }
+
+    pub const fn as_cstr(&self) -> &'a CStr {
+        unsafe { CStr::from_ptr(self.ptr) }
     }
 }
 
 impl Drop for JStr<'_> {
     fn drop(&mut self) {
-        let errno = jvmti!(self.env.ptr, Deallocate, self.ptr.cast());
+        let errno = unsafe_jvmti!(self.env.ptr, Deallocate, self.ptr.cast());
         assert_eq!(errno, sys::JVMTI_ERROR_NONE, "Failed to deallocate string");
     }
 }

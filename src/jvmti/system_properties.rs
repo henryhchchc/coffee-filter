@@ -1,10 +1,6 @@
-use std::{
-    ffi::{c_char, CStr},
-    mem::MaybeUninit,
-    ops::Index,
-};
+use std::{ffi::c_char, mem::MaybeUninit};
 
-use crate::{macros::jvmti, sys, utils::jvmti_result};
+use crate::{macros::unsafe_jvmti, sys, utils::jvmti_result};
 
 use super::{Env, Error, JStr};
 
@@ -15,7 +11,7 @@ impl Env {
     pub fn get_system_property_keys(&self) -> Result<Vec<JStr<'_>>, Error> {
         let mut count: MaybeUninit<sys::jint> = MaybeUninit::uninit();
         let mut ptr: MaybeUninit<*mut *mut c_char> = MaybeUninit::uninit();
-        let errno = jvmti!(
+        let errno = unsafe_jvmti!(
             self.ptr,
             GetSystemProperties,
             count.as_mut_ptr(),
@@ -30,7 +26,7 @@ impl Env {
                     JStr::from_raw_parts(self, ptr)
                 })
                 .collect();
-            let errno = jvmti!(self.ptr, Deallocate, strs_ptr.cast());
+            let errno = unsafe_jvmti!(self.ptr, Deallocate, strs_ptr.cast());
             assert_eq!(
                 errno,
                 sys::JVMTI_ERROR_NONE,
@@ -43,10 +39,11 @@ impl Env {
     /// Gets the value of a VM system property.
     /// # Errors
     /// - [`Error::NotAvailable`] if the property is not available.
+    ///
     /// See [`Error`] for more information.
     pub fn get_system_property(&self, key: &JStr<'_>) -> Result<JStr<'_>, Error> {
         let mut value_ptr: MaybeUninit<*mut c_char> = MaybeUninit::uninit();
-        let errno = jvmti!(
+        let errno = unsafe_jvmti!(
             self.ptr,
             GetSystemProperty,
             key.as_ptr(),
@@ -62,7 +59,7 @@ impl Env {
     /// # Errors
     /// - [`Error::NotAvailable`] if the property is not available or writable.
     pub fn set_system_property(&self, key: &JStr<'_>, value: &JStr<'_>) -> Result<(), Error> {
-        let errno = jvmti!(self.ptr, SetSystemProperty, key.as_ptr(), value.as_ptr());
+        let errno = unsafe_jvmti!(self.ptr, SetSystemProperty, key.as_ptr(), value.as_ptr());
         jvmti_result(errno, || ())
     }
 }
