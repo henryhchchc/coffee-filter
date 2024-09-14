@@ -6,6 +6,9 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0"
+derive_more = { version = "1", features = ["try_from"] }
+bitflags = "2.6.0"
+
 
 [build-dependencies]
 anyhow = "1"

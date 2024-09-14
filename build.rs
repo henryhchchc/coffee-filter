@@ -7,9 +7,8 @@ use std::{env, io::Write};
 use anyhow::{bail, Context};
 use regex::bytes::Regex;
 
-static BINDGEN_TY_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"pub type (_bindgen_ty_\d+) = ::std::os::raw::c_uint;")
-        .expect("The regex is incorrect")
+static UINT_TY_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"pub type ([\w_]+) = ::std::os::raw::c_uint;").expect("The regex is incorrect")
 });
 
 fn main() -> Result<(), anyhow::Error> {
@@ -56,7 +55,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     let bindings_rust_code =
-        BINDGEN_TY_REGEX.replace_all(&buf, b"pub type $1 = ::std::os::raw::c_int;");
+        UINT_TY_REGEX.replace_all(&buf, b"pub type $1 = ::std::os::raw::c_int;");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     let binding_dot_rs = File::create(out_path.join("bindings.rs"))?;

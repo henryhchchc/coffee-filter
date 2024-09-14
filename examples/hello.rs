@@ -18,5 +18,17 @@ unsafe extern "C" fn Agent_OnLoad(
             .to_str()
             .expect("The options is not in valid UTF-8")
     });
-    println!("Hello {:?}, options: {:?}", jvmti, options);
+    let memory = jvmti.allocate(1024).expect("Fail to allocate memory");
+    println!("Allocated: {memory:?}");
+    let phase = jvmti.get_phase().expect("Fail to get phase");
+    println!("Phase: {phase:?}");
+    let properties = jvmti
+        .get_system_property_keys()
+        .expect("Fail to get system property keys");
+    for key in &properties {
+        let value = jvmti
+            .get_system_property(key)
+            .expect("Fail to get system property");
+        println!("Prop: {key:?}={value:?}");
+    }
 }

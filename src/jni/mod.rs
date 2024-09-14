@@ -1,3 +1,4 @@
+//! Functionalities for JNI
 use std::mem::MaybeUninit;
 
 use crate::{
@@ -8,16 +9,21 @@ use crate::{
 
 pub type RawJavaVM = sys::JavaVM;
 
+/// A Java Virtual Machine in JNI
 #[derive(Debug)]
 pub struct JavaVM {
     ptr: *mut sys::JavaVM,
 }
 
 impl JavaVM {
+    /// Create a new instance of [`JavaVM`] from a raw pointer
     pub fn from_raw(ptr: *mut RawJavaVM) -> Self {
         Self { ptr }
     }
 
+    /// Get the JVMTI environment.
+    /// # Errors
+    /// See [`GetEnvError`] for more information.
     pub fn get_env(&self, version: jvmti::Version) -> Result<jvmti::Env, GetEnvError> {
         let mut env_ptr: MaybeUninit<*mut sys::jvmtiEnv> = MaybeUninit::uninit();
         let result = jvmti!(
@@ -39,9 +45,12 @@ impl JavaVM {
 }
 
 #[derive(Debug, thiserror::Error)]
+/// Errors that can occur when getting the JVMTI environment
 pub enum GetEnvError {
+    /// The current thread is not attached to the VM
     #[error("The current thread is not attached to the VM")]
     Detached,
+    /// The specified version is not supported
     #[error("The specified version is not supported")]
     VersionNotSupported,
 }
