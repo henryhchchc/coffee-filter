@@ -5,13 +5,13 @@ use crate::{macros::unsafe_jvmti, sys, utils::jvmti_result};
 
 /// A chunk of memory allocated by the JVM
 #[derive(Debug)]
-pub struct JvmMemoryChunk<'jvmti> {
+pub struct JBox<'jvmti> {
     env: &'jvmti Env,
     ptr: *mut u8,
     size: usize,
 }
 
-impl<'a> JvmMemoryChunk<'a> {
+impl<'a> JBox<'a> {
     pub(crate) fn from_raw_parts(env: &'a Env, ptr: *mut u8, size: usize) -> Self {
         Self { env, ptr, size }
     }
@@ -27,6 +27,13 @@ impl<'a> JvmMemoryChunk<'a> {
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
     }
 
+    /// Consumes the chunk of memory and returns a raw pointer to it.
+    pub const fn into_raw(self) -> *mut u8 {
+        let ptr = self.ptr;
+        std::mem::forget(self);
+        ptr
+    }
+
     /// Consumes and leaks the chunk of memory.
     /// It is nolonger possible to deallocate the memory.
     /// Dropping the returned slice will lead to a memory leak.
@@ -39,7 +46,7 @@ impl<'a> JvmMemoryChunk<'a> {
     }
 }
 
-impl Drop for JvmMemoryChunk<'_> {
+impl Drop for JBox<'_> {
     fn drop(&mut self) {
         let result = unsafe_jvmti!(self.env.ptr, Deallocate, self.ptr);
         assert_eq!(
@@ -54,13 +61,13 @@ impl Env {
     /// Allocates a chunk of memory of the given size.
     /// # Errors
     /// - [`Error::OutOfMemory`] if the memory request cannot be honored.
-    pub fn allocate(&self, size: usize) -> Result<JvmMemoryChunk<'_>, Error> {
+    pub fn allocate(&self, size: usize) -> Result<JBox<'_>, Error> {
         let mut bytes: MaybeUninit<*mut u8> = MaybeUninit::uninit();
         let size_in_jvm = size.try_into().map_err(|_| Error::IllegalArgument)?;
         let errno = unsafe_jvmti!(self.ptr, Allocate, size_in_jvm, bytes.as_mut_ptr());
         jvmti_result(errno, || {
             let ptr = unsafe { bytes.assume_init() };
-            JvmMemoryChunk::from_raw_parts(self, ptr, size)
+            JBox::from_raw_parts(self, ptr, size)
         })
     }
 }

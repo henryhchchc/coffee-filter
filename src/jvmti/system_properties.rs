@@ -2,13 +2,13 @@ use std::{ffi::c_char, mem::MaybeUninit};
 
 use crate::{macros::unsafe_jvmti, sys, utils::jvmti_result};
 
-use super::{Env, Error, JStr};
+use super::{Env, Error, JString};
 
 impl Env {
     /// Gets a list of VM system property keys which may be used with [`get_system_property`].
     /// # Errors
     /// See [`Error`] for more information.
-    pub fn get_system_property_keys(&self) -> Result<Vec<JStr<'_>>, Error> {
+    pub fn get_system_property_keys(&self) -> Result<Vec<JString<'_>>, Error> {
         let mut count: MaybeUninit<sys::jint> = MaybeUninit::uninit();
         let mut ptr: MaybeUninit<*mut *mut c_char> = MaybeUninit::uninit();
         let errno = unsafe_jvmti!(
@@ -23,7 +23,7 @@ impl Env {
             let keys = (0..count)
                 .map(|i| {
                     let ptr = unsafe { *strs_ptr.add(i as usize) };
-                    JStr::from_raw_parts(self, ptr)
+                    JString::from_raw_parts(self, ptr)
                 })
                 .collect();
             let errno = unsafe_jvmti!(self.ptr, Deallocate, strs_ptr.cast());
@@ -41,7 +41,7 @@ impl Env {
     /// - [`Error::NotAvailable`] if the property is not available.
     ///
     /// See [`Error`] for more information.
-    pub fn get_system_property(&self, key: &JStr<'_>) -> Result<JStr<'_>, Error> {
+    pub fn get_system_property(&self, key: &JString<'_>) -> Result<JString<'_>, Error> {
         let mut value_ptr: MaybeUninit<*mut c_char> = MaybeUninit::uninit();
         let errno = unsafe_jvmti!(
             self.ptr,
@@ -51,14 +51,14 @@ impl Env {
         );
         jvmti_result(errno, || {
             let value_ptr = unsafe { value_ptr.assume_init() };
-            JStr::from_raw_parts(self, value_ptr)
+            JString::from_raw_parts(self, value_ptr)
         })
     }
 
     /// Sets the value of a VM system property.
     /// # Errors
     /// - [`Error::NotAvailable`] if the property is not available or writable.
-    pub fn set_system_property(&self, key: &JStr<'_>, value: &JStr<'_>) -> Result<(), Error> {
+    pub fn set_system_property(&self, key: &JString<'_>, value: &JString<'_>) -> Result<(), Error> {
         let errno = unsafe_jvmti!(self.ptr, SetSystemProperty, key.as_ptr(), value.as_ptr());
         jvmti_result(errno, || ())
     }

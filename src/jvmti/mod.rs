@@ -1,15 +1,19 @@
 mod memory;
+mod string;
 mod version;
 
+pub(crate) mod internal;
+
 pub mod capabilities;
+pub mod event;
 pub mod general;
 pub mod system_properties;
 
-use std::ffi::{c_char, CStr};
+use std::{mem::MaybeUninit, sync::RwLock};
 
-pub use {memory::JvmMemoryChunk, version::Version};
+pub use {memory::JBox, string::JString, version::Version};
 
-use crate::{macros::unsafe_jvmti, sys};
+use crate::{macros::unsafe_jvmti, sys, utils::jvmti_result};
 
 /// A JVM Tool Interface (JVM TI) environment.
 #[derive(Debug)]
@@ -21,49 +25,36 @@ impl Env {
     pub(crate) fn from_raw(ptr: *mut sys::jvmtiEnv) -> Self {
         Self { ptr }
     }
-}
 
-impl Drop for Env {
-    fn drop(&mut self) {
-        let result = unsafe_jvmti!(self.ptr, DisposeEnvironment);
-        assert_eq!(
-            result,
-            sys::JVMTI_ERROR_NONE,
-            "Failed to dispose JVMTI environment: {result:?}",
+    pub(crate) fn metadata(&self) -> Result<&RwLock<internal::EnvMetaData>, Error> {
+        let mut local_storage: MaybeUninit<*mut u8> = MaybeUninit::uninit();
+        let errno = unsafe_jvmti!(
+            self.ptr,
+            GetEnvironmentLocalStorage,
+            local_storage.as_mut_ptr().cast()
         );
-    }
-}
-
-pub struct JStr<'j> {
-    env: &'j Env,
-    ptr: *mut c_char,
-}
-
-impl std::fmt::Debug for JStr<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let cstr = unsafe { CStr::from_ptr(self.ptr) };
-        cstr.fmt(f)
-    }
-}
-
-impl<'a> JStr<'a> {
-    pub(crate) const fn from_raw_parts(env: &'a Env, ptr: *mut c_char) -> Self {
-        Self { env, ptr }
-    }
-
-    pub const fn as_ptr(&self) -> *const c_char {
-        self.ptr
+        let locl = jvmti_result(errno, || {
+            let data_ptr = unsafe { local_storage.assume_init() };
+            if data_ptr.is_null() {
+                None
+            } else {
+                Some(unsafe { &*(data_ptr as *mut RwLock<internal::EnvMetaData>) })
+            }
+        })?;
+        if let Some(mutex) = locl {
+            Ok(mutex)
+        } else {
+            let lock = Box::new(RwLock::new(internal::EnvMetaData::default()));
+            let mutex_ptr: *mut _ = Box::leak(lock);
+            let errno = unsafe_jvmti!(self.ptr, SetEnvironmentLocalStorage, mutex_ptr.cast());
+            jvmti_result(errno, || ())?;
+            Ok(unsafe { &*mutex_ptr })
+        }
     }
 
-    pub const fn as_cstr(&self) -> &'a CStr {
-        unsafe { CStr::from_ptr(self.ptr) }
-    }
-}
-
-impl Drop for JStr<'_> {
-    fn drop(&mut self) {
-        let errno = unsafe_jvmti!(self.env.ptr, Deallocate, self.ptr.cast());
-        assert_eq!(errno, sys::JVMTI_ERROR_NONE, "Failed to deallocate string");
+    pub fn dispose(self) -> Result<(), Error> {
+        let errno = unsafe_jvmti!(self.ptr, DisposeEnvironment);
+        jvmti_result(errno, || ())
     }
 }
 
